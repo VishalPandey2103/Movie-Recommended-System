@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import os
 from pathlib import Path
 import streamlit as st
@@ -83,4 +84,91 @@ if st.button("Recommend", type="primary"):
     for idx, col in enumerate(cols):
         with col:
             st.text(names[idx])
+=======
+import os
+from pathlib import Path
+import streamlit as st
+import pickle
+import gzip
+import pandas as pd
+import requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
+
+# --- Safe requests session with retry ---
+session = requests.Session()
+retry = Retry(connect=3, backoff_factor=0.5)
+adapter = HTTPAdapter(max_retries=retry)
+session.mount('http://', adapter)
+session.mount('https://', adapter)
+
+# Get TMDB API key from environment, fallback to existing key but warn
+TMDB_API_KEY = os.getenv('TMDB_API_KEY', 'af165e8e2feaea9c07ff82141ef2bd46')
+##if TMDB_API_KEY == 'af165e8e2feaea9c07ff82141ef2bd46':
+ ##   st.warning('Using embedded TMDB API key. For production set TMDB_API_KEY environment variable.')
+
+def fetch_poster(movie_id):
+    try:
+        url = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={TMDB_API_KEY}&language=en-US"
+        response = session.get(url, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+        if "poster_path" in data and data['poster_path']:
+            return "https://image.tmdb.org/t/p/w500" + data['poster_path']
+        else:
+            return "https://via.placeholder.com/500x750?text=No+Image"
+    except Exception as e:
+        print("Error fetching poster:", e)
+        return "https://via.placeholder.com/500x750?text=Error"
+
+
+# --- Load similarity and movies ---
+BASE_DIR = Path(__file__).resolve().parent
+sim_path = BASE_DIR / 'similarity.pkl.gz'
+movies_path = BASE_DIR / 'movies.pkl'
+
+if not sim_path.exists() or not movies_path.exists():
+    st.error(f"Required data files not found in {BASE_DIR}. Make sure 'similarity.pkl.gz' and 'movies.pkl' exist.")
+    st.stop()
+
+with gzip.open(sim_path, 'rb') as f:
+    similarity = pickle.load(f)
+
+with open(movies_path, 'rb') as f:
+    movie_list = pickle.load(f)
+
+movie = pd.DataFrame(movie_list)
+movie_titles = movie['title'].values
+
+
+# --- Recommendation logic ---
+def recommend(movie_name):
+    movie_index = movie[movie['title'] == movie_name].index[0]
+    distances = similarity[movie_index]
+    movie_lst = sorted(list(enumerate(distances)), reverse=True, key=lambda x: x[1])[1:6]
+
+    recommended_movies = []
+    recommended_posters = []
+    for i in movie_lst:
+        movie_id = movie.iloc[i[0]].movie_id
+        recommended_movies.append(movie.iloc[i[0]].title)
+        recommended_posters.append(fetch_poster(movie_id))
+    return recommended_movies, recommended_posters
+
+
+# --- Streamlit UI ---
+st.title('🎬 Movie Recommender System')
+
+selected_movie_name = st.selectbox(
+    "Choose a movie you like:",
+    movie_titles
+)
+
+if st.button("Recommend", type="primary"):
+    names, posters = recommend(selected_movie_name)
+    cols = st.columns(5)
+    for idx, col in enumerate(cols):
+        with col:
+            st.text(names[idx])
+>>>>>>> 74936e8431529c34c4120c301b51e9f8e1a8bcf1
             st.image(posters[idx])

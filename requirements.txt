@@ -1,4 +1,10 @@
+<<<<<<< HEAD
 streamlit
 requests
 pandas
+=======
+streamlit
+requests
+pandas
+>>>>>>> 74936e8431529c34c4120c301b51e9f8e1a8bcf1
 numpy
